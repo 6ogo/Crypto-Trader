@@ -1,0 +1,276 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Positions & P&L</h1>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Overall P&L Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 text-center">
+                        <h5>Total P&L</h5>
+                        <p class="display-4 {% if total_pnl > 0 %}text-success{% elif total_pnl < 0 %}text-danger{% endif %}">
+                            ${{ "%.2f"|format(total_pnl) }}
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <h5>Realized P&L</h5>
+                        <p class="display-4 {% if total_realized_pnl > 0 %}text-success{% elif total_realized_pnl < 0 %}text-danger{% endif %}">
+                            ${{ "%.2f"|format(total_realized_pnl) }}
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <h5>Unrealized P&L</h5>
+                        <p class="display-4 {% if total_unrealized_pnl > 0 %}text-success{% elif total_unrealized_pnl < 0 %}text-danger{% endif %}">
+                            ${{ "%.2f"|format(total_unrealized_pnl) }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Position P&L Chart</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="positionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">All Positions</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Amount</th>
+                                <th>Type</th>
+                                <th>Entry Price</th>
+                                <th>Current Price</th>
+                                <th>Value</th>
+                                <th>Unrealized P&L</th>
+                                <th>Realized P&L</th>
+                                <th>Total P&L</th>
+                                <th>Last Updated</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for position in positions %}
+                            <tr>
+                                <td>{{ position.symbol }}</td>
+                                <td>{{ "%.4f"|format(position.amount) }}</td>
+                                <td class="{% if position.amount > 0 %}prediction-up{% elif position.amount < 0 %}prediction-down{% else %}text-muted{% endif %}">
+                                    {% if position.amount > 0 %}
+                                        LONG
+                                    {% elif position.amount < 0 %}
+                                        SHORT
+                                    {% else %}
+                                        FLAT
+                                    {% endif %}
+                                </td>
+                                <td>${{ "%.2f"|format(position.avg_entry_price) if position.avg_entry_price else '-' }}</td>
+                                <td>${{ "%.2f"|format(position.current_price) if position.current_price else '-' }}</td>
+                                <td>${{ "%.2f"|format(position.position_value) if position.position_value else '-' }}</td>
+                                <td class="{% if position.unrealized_pnl > 0 %}prediction-up{% elif position.unrealized_pnl < 0 %}prediction-down{% endif %}">
+                                    ${{ "%.2f"|format(position.unrealized_pnl) }}
+                                </td>
+                                <td class="{% if position.realized_pnl > 0 %}prediction-up{% elif position.realized_pnl < 0 %}prediction-down{% endif %}">
+                                    ${{ "%.2f"|format(position.realized_pnl) }}
+                                </td>
+                                <td class="{% if (position.unrealized_pnl + position.realized_pnl) > 0 %}prediction-up{% elif (position.unrealized_pnl + position.realized_pnl) < 0 %}prediction-down{% endif %}">
+                                    ${{ "%.2f"|format(position.unrealized_pnl + position.realized_pnl) }}
+                                </td>
+                                <td>{{ position.last_updated.strftime('%H:%M %d-%m-%Y') }}</td>
+                                <td>
+                                    {% if position.amount != 0 %}
+                                    <div class="btn-group btn-group-sm">
+                                        {% if position.amount > 0 %}
+                                        <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#tradeModal" data-symbol="{{ position.symbol }}" data-action="sell">Close</button>
+                                        {% elif position.amount < 0 %}
+                                        <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#tradeModal" data-symbol="{{ position.symbol }}" data-action="buy">Close</button>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Trade Modal for closing positions -->
+<div class="modal fade" id="tradeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="tradeModalLabel">Close Position</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="tradeForm">
+                    <div class="mb-3">
+                        <label for="tradeSymbol" class="form-label">Symbol</label>
+                        <input type="text" class="form-control" id="tradeSymbol" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="tradeType" class="form-label">Order Type</label>
+                        <input type="text" class="form-control" id="tradeType" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="tradeAmount" class="form-label">Amount</label>
+                        <input type="number" class="form-control" id="tradeAmount" step="0.001" min="0.001" required>
+                        <div class="form-text">Enter the amount to close (or leave empty to close entire position).</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="closePosition">Close Position</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Position P&L chart
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('positionChart').getContext('2d');
+        
+        // Prepare data for chart
+        const symbols = [];
+        const unrealizedPnl = [];
+        const realizedPnl = [];
+        
+        {% for position in positions %}
+        symbols.push("{{ position.symbol }}");
+        unrealizedPnl.push({{ position.unrealized_pnl }});
+        realizedPnl.push({{ position.realized_pnl }});
+        {% endfor %}
+        
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: symbols,
+                datasets: [
+                    {
+                        label: 'Unrealized P&L',
+                        data: unrealizedPnl,
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Realized P&L',
+                        data: realizedPnl,
+                        backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        stacked: false
+                    },
+                    y: {
+                        stacked: false,
+                        title: {
+                            display: true,
+                            text: 'Profit/Loss ($)'
+                        }
+                    }
+                }
+            }
+        });
+    });
+    
+    // Close position functionality
+    const tradeModal = document.getElementById('tradeModal');
+    tradeModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        const symbol = button.getAttribute('data-symbol');
+        const action = button.getAttribute('data-action');
+        
+        document.getElementById('tradeSymbol').value = symbol;
+        document.getElementById('tradeType').value = action;
+        
+        // Find the position amount to pre-fill
+        {% for position in positions %}
+        if ("{{ position.symbol }}" === symbol) {
+            const positionAmount = {{ position.amount }};
+            // Pre-fill with the absolute amount of the position
+            document.getElementById('tradeAmount').value = Math.abs(positionAmount).toFixed(4);
+        }
+        {% endfor %}
+    });
+    
+    // Close position button handler
+    document.getElementById('closePosition').addEventListener('click', function() {
+        const symbol = document.getElementById('tradeSymbol').value;
+        const orderType = document.getElementById('tradeType').value;
+        const amount = document.getElementById('tradeAmount').value;
+        
+        if (!amount || amount <= 0) {
+            alert('Please enter a valid amount');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('symbol', symbol);
+        formData.append('order_type', orderType);
+        formData.append('amount', amount);
+        
+        fetch('/place_trade', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                let message = data.message;
+                if (data.realized_pnl) {
+                    message += `. Realized P&L: $${data.realized_pnl.toFixed(2)}`;
+                }
+                alert(message);
+                window.location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error);
+        });
+    });
+</script>
+{% endblock %}

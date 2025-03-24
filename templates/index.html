@@ -1,0 +1,30 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8">
+            <h1>Crypto Trading with Machine Learning</h1>
+            <p class="lead">A powerful platform that uses machine learning algorithms to predict cryptocurrency price movements and automate trading.</p>
+            <div class="mt-4">
+                <a href="{{ url_for('login') }}" class="btn btn-primary me-2">Login</a>
+                <a href="{{ url_for('register') }}" class="btn btn-outline-primary">Register</a>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">Features</h5>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item"><i class="bi bi-check-circle-fill text-success me-2"></i>ML-powered price predictions</li>
+                    <li class="list-group-item"><i class="bi bi-check-circle-fill text-success me-2"></i>Multiple cryptocurrency support</li>
+                    <li class="list-group-item"><i class="bi bi-check-circle-fill text-success me-2"></i>Real-time trading via Kraken API</li>
+                    <li class="list-group-item"><i class="bi bi-check-circle-fill text-success me-2"></i>Advanced technical indicators</li>
+                    <li class="list-group-item"><i class="bi bi-check-circle-fill text-success me-2"></i>Performance tracking</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

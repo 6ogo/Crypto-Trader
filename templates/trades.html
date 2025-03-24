@@ -1,0 +1,158 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Trade History</h1>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Trade Statistics</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 text-center">
+                        <h5>Total Trades</h5>
+                        <p class="display-4">{{ stats.total_trades }}</p>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <h5>Profitable Trades</h5>
+                        <p class="display-4 text-success">
+                            {{ stats.profitable_trades }}
+                        </p>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <h5>Win Rate</h5>
+                        <p class="display-4 {% if stats.profitable_trades / stats.total_trades > 0.5 %}text-success{% else %}text-danger{% endif %}">
+                            {{ "%.1f"|format(stats.profitable_trades / stats.total_trades * 100) if stats.total_trades > 0 else 0 }}%
+                        </p>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <h5>Total P&L</h5>
+                        <p class="display-4 {% if stats.total_profit_loss > 0 %}text-success{% elif stats.total_profit_loss < 0 %}text-danger{% endif %}">
+                            ${{ "%.2f"|format(stats.total_profit_loss) }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">P&L by Symbol</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="pnlChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">All Trades</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Type</th>
+                                <th>Amount</th>
+                                <th>Price</th>
+                                <th>Value</th>
+                                <th>Realized P&L</th>
+                                <th>Date & Time</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for trade in trades %}
+                            <tr>
+                                <td>{{ trade.symbol }}</td>
+                                <td class="{% if trade.order_type == 'buy' %}prediction-up{% else %}prediction-down{% endif %}">
+                                    {{ trade.order_type.upper() }}
+                                </td>
+                                <td>{{ "%.4f"|format(trade.amount) }}</td>
+                                <td>${{ "%.2f"|format(trade.price) }}</td>
+                                <td>${{ "%.2f"|format(trade.price * trade.amount) }}</td>
+                                <td class="{% if trade.realized_pnl and trade.realized_pnl > 0 %}prediction-up{% elif trade.realized_pnl and trade.realized_pnl < 0 %}prediction-down{% endif %}">
+                                    {% if trade.realized_pnl %}
+                                    ${{ "%.2f"|format(trade.realized_pnl) }}
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                                <td>{{ trade.timestamp.strftime('%H:%M %d-%m-%Y') }}</td>
+                                <td>
+                                    <span class="badge {% if trade.status == 'completed' %}bg-success{% elif trade.status == 'pending' %}bg-warning{% else %}bg-danger{% endif %}">
+                                        {{ trade.status }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // P&L by Symbol chart
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('pnlChart').getContext('2d');
+        
+        // Prepare data
+        const symbols = [];
+        const pnlValues = [];
+        const colors = [];
+        
+        {% for symbol, data in stats.by_symbol.items() %}
+        symbols.push("{{ symbol }}");
+        pnlValues.push({{ data.pnl }});
+        colors.push({{ data.pnl }} >= 0 ? 'rgba(40, 167, 69, 0.7)' : 'rgba(220, 53, 69, 0.7)');
+        {% endfor %}
+        
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: symbols,
+                datasets: [{
+                    label: 'Profit/Loss ($)',
+                    data: pnlValues,
+                    backgroundColor: colors,
+                    borderColor: colors.map(color => color.replace('0.7', '1')),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Profit/Loss ($)'
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">API Settings</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Kraken API Credentials</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    <div class="mb-3">
+                        <label for="api_key" class="form-label">API Key</label>
+                        <input type="text" class="form-control" id="api_key" name="api_key" value="{{ current_user.api_key or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="api_secret" class="form-label">API Secret</label>
+                        <input type="password" class="form-control" id="api_secret" name="api_secret" value="{{ current_user.api_secret or '' }}">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Credentials</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">How to Get Kraken API Keys</h5>
+            </div>
+            <div class="card-body">
+                <ol>
+                    <li>Log in to your Kraken account</li>
+                    <li>Navigate to <strong>Settings &gt; API</strong></li>
+                    <li>Click <strong>Add key</strong></li>
+                    <li>Enter a key description (e.g., "ML Trading Bot")</li>
+                    <li>Set the following permissions:
+                        <ul>
+                            <li>Query Funds</li>
+                            <li>Query Open Orders &amp; Trades</li>
+                            <li>Query Closed Orders &amp; Trades</li>
+                            <li>Create &amp; Modify Orders</li>
+                        </ul>
+                    </li>
+                    <li>Click <strong>Generate Key</strong></li>
+                    <li>Copy the API Key and Private Key (Secret) to the form on the left</li>
+                </ol>
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i> Never share your API Secret with anyone else!
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

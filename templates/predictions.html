@@ -1,0 +1,167 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Predictions</h1>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Prediction Accuracy</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="accuracyChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Prediction Statistics</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <h6>Overall Accuracy</h6>
+                            <div class="progress">
+                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ (stats.accuracy * 100)|round }}%" aria-valuenow="{{ (stats.accuracy * 100)|round }}" aria-valuemin="0" aria-valuemax="100">{{ (stats.accuracy * 100)|round }}%</div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <h6>Total Predictions</h6>
+                            <p class="lead">{{ stats.total }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Accuracy by Symbol</h6>
+                        <ul class="list-group">
+                            {% for symbol, data in stats.by_symbol.items() %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ symbol }}
+                                <span class="badge bg-primary rounded-pill">{{ (data.accuracy * 100)|round }}%</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">All Predictions</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Prediction</th>
+                                <th>Probability</th>
+                                <th>Time</th>
+                                <th>Outcome</th>
+                                <th>Accuracy</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pred in predictions %}
+                            <tr>
+                                <td>{{ pred.symbol }}</td>
+                                <td class="{% if pred.prediction %}prediction-up{% else %}prediction-down{% endif %}">
+                                    {% if pred.prediction %}
+                                    <i class="bi bi-arrow-up-circle-fill"></i> UP
+                                    {% else %}
+                                    <i class="bi bi-arrow-down-circle-fill"></i> DOWN
+                                    {% endif %}
+                                </td>
+                                <td>{{ "%.2f"|format(pred.probability * 100) }}%</td>
+                                <td>{{ pred.timestamp.strftime('%H:%M %d-%m-%Y') }}</td>
+                                <td>
+                                    {% if pred.outcome is not none %}
+                                        <span class="{% if pred.outcome %}prediction-up{% else %}prediction-down{% endif %}">
+                                            {% if pred.outcome %}
+                                            <i class="bi bi-arrow-up-circle-fill"></i> UP
+                                            {% else %}
+                                            <i class="bi bi-arrow-down-circle-fill"></i> DOWN
+                                            {% endif %}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">Pending</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if pred.accuracy is not none %}
+                                        <span class="badge {% if pred.accuracy == 1 %}bg-success{% else %}bg-danger{% endif %}">
+                                            {% if pred.accuracy == 1 %}Correct{% else %}Incorrect{% endif %}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Accuracy chart initialization
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('accuracyChart').getContext('2d');
+        
+        // Prepare data for chart
+        const symbols = [];
+        const accuracies = [];
+        
+        {% for symbol, data in stats.by_symbol.items() %}
+        symbols.push("{{ symbol }}");
+        accuracies.push({{ data.accuracy }});
+        {% endfor %}
+        
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: symbols,
+                datasets: [{
+                    label: 'Prediction Accuracy',
+                    data: accuracies.map(val => val * 100),
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: 'Accuracy (%)'
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}
