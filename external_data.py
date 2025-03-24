@@ -1,5 +1,3 @@
-# Create a new file called external_data.py
-
 import requests
 import pandas as pd
 import json
@@ -7,6 +5,7 @@ import os
 from datetime import datetime, timedelta
 import time
 import logging
+import numpy as np
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -195,12 +194,153 @@ class ExternalDataCollector:
                 return pd.read_csv(filename, index_col=0, parse_dates=True)
             return None
     
+    def fetch_dxy_data(self, days=365):
+        """
+        Fetch Dollar Index (DXY) data
+        In a real system, you'd use a financial API like Alpha Vantage, FRED, or Yahoo Finance
+        """
+        filename = os.path.join(self.data_dir, 'dxy_index.csv')
+        
+        try:
+            # Check if we need to update (daily data, only update once a day)
+            if os.path.exists(filename):
+                df = pd.read_csv(filename, index_col=0, parse_dates=True)
+                latest_date = df.index.max()
+                
+                if latest_date >= (datetime.now() - timedelta(days=2)).date():
+                    logger.info(f"Using cached DXY index data from {filename}")
+                    return df
+            
+            # In a real system, you'd call an API like:
+            # url = f"https://api.example.com/forex/DXY/historical?days={days}&api_key={api_key}"
+            
+            # For this example, we'll generate proxy DXY data based on relative strength patterns
+            # Start with a base value
+            base_value = 102.0  # Approximate recent DXY value
+            
+            # Simulate fluctuations with slight upward trend
+            volatility = 0.005
+            trend = 0.0001
+            
+            # Generate dates
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days)
+            dates = pd.date_range(start=start_date, end=end_date, freq='D')
+            
+            # Generate values with random walk + trend
+            values = [base_value]
+            for i in range(1, len(dates)):
+                change = np.random.normal(trend, volatility)
+                next_val = values[-1] * (1 + change)
+                values.append(next_val)
+            
+            # Create DataFrame
+            df = pd.DataFrame({
+                'DXY_Close': values,
+            }, index=dates)
+            
+            # Calculate day-over-day and week-over-week changes
+            df['DXY_DoD_Change'] = df['DXY_Close'].pct_change()
+            df['DXY_WoW_Change'] = df['DXY_Close'].pct_change(7)
+            
+            # Save to CSV
+            df.to_csv(filename)
+            logger.info(f"Generated and saved synthetic DXY index data to {filename}")
+            return df
+            
+        except Exception as e:
+            logger.error(f"Error generating DXY index data: {str(e)}")
+            
+            # Try to load from cache if failed
+            if os.path.exists(filename):
+                return pd.read_csv(filename, index_col=0, parse_dates=True)
+            return None
+
+    def fetch_onchain_metrics(self, symbol='BTC', days=180):
+        """
+        Fetch on-chain metrics for Bitcoin/crypto
+        In a real system, you'd use an API like Glassnode, CryptoQuant, or Coin Metrics
+        """
+        filename = os.path.join(self.data_dir, f'{symbol}_onchain.csv')
+        
+        try:
+            # Check if we need to update
+            if os.path.exists(filename):
+                df = pd.read_csv(filename, index_col=0, parse_dates=True)
+                latest_date = df.index.max()
+                
+                if latest_date >= (datetime.now() - timedelta(days=3)).date():
+                    logger.info(f"Using cached on-chain data from {filename}")
+                    return df
+            
+            # Get price data to simulate realistic on-chain metrics
+            price_file = os.path.join(self.data_dir, f"{symbol}USD_hourly_4y.csv")
+            if not os.path.exists(price_file):
+                logger.error(f"{symbol} price data not found at {price_file}")
+                return None
+                
+            price_data = pd.read_csv(price_file, index_col=0, parse_dates=True)
+            daily_prices = price_data['close'].resample('D').last()
+            recent_prices = daily_prices.tail(days)
+            
+            # Generate dates
+            dates = recent_prices.index
+            
+            # Generate synthetic on-chain metrics based on price action
+            # Active addresses
+            active_addresses_base = 1000000 if symbol == 'BTC' else 500000
+            active_addresses = active_addresses_base + recent_prices * (10 if symbol == 'BTC' else 5)
+            active_addresses = active_addresses * (1 + np.random.normal(0, 0.1, len(dates)))
+            
+            # Transaction count
+            tx_count_base = 300000 if symbol == 'BTC' else 1200000
+            tx_count = tx_count_base + recent_prices * (5 if symbol == 'BTC' else 20)
+            tx_count = tx_count * (1 + np.random.normal(0, 0.15, len(dates)))
+            
+            # Exchange inflow/outflow
+            exchange_inflow = recent_prices * (0.1 + np.random.normal(0, 0.05, len(dates)))
+            exchange_outflow = recent_prices * (0.09 + np.random.normal(0, 0.06, len(dates)))
+            net_flow = exchange_outflow - exchange_inflow
+            
+            # Create DataFrame
+            df = pd.DataFrame({
+                'active_addresses': active_addresses,
+                'transaction_count': tx_count,
+                'exchange_inflow': exchange_inflow,
+                'exchange_outflow': exchange_outflow,
+                'net_exchange_flow': net_flow,
+                'price': recent_prices
+            })
+            
+            # Add derived metrics
+            df['active_addresses_change'] = df['active_addresses'].pct_change(7)
+            df['transaction_count_change'] = df['transaction_count'].pct_change(7)
+            df['net_flow_intensity'] = df['net_exchange_flow'] / df['price']
+            
+            # Save to CSV
+            df.to_csv(filename)
+            logger.info(f"Generated and saved synthetic on-chain data for {symbol} to {filename}")
+            return df
+            
+        except Exception as e:
+            logger.error(f"Error generating on-chain data: {str(e)}")
+            
+            # Try to load from cache if failed
+            if os.path.exists(filename):
+                return pd.read_csv(filename, index_col=0, parse_dates=True)
+            return None
+
     def collect_all_external_data(self):
-        """Collect all external data sources and merge into a single DataFrame"""
-        # Fetch all data sources
+        """Modified version to add additional data sources"""
+        # Fetch existing data sources
         fear_greed = self.fetch_crypto_fear_greed_index()
         market_sentiment = self.fetch_market_sentiment()
         m2_supply = self.fetch_m2_money_supply()
+        
+        # New data sources
+        dxy_data = self.fetch_dxy_data()
+        btc_onchain = self.fetch_onchain_metrics('BTC')
+        eth_onchain = self.fetch_onchain_metrics('ETH')
         
         # Create a daily date range for the past year
         end_date = datetime.now()
@@ -210,26 +350,55 @@ class ExternalDataCollector:
         # Create a base DataFrame with the date range
         combined_df = pd.DataFrame(index=date_range)
         
-        # Add fear & greed index
+        # Add existing data
         if fear_greed is not None:
             # Resample to daily just in case
             fear_greed_daily = fear_greed.resample('D').last()
             combined_df['fear_greed_value'] = fear_greed_daily['value']
             combined_df['fear_greed_class'] = fear_greed_daily['value_classification']
             
-        # Add market sentiment
+            # Add contrarian indicator (100 - fear_greed)
+            combined_df['fear_greed_contrarian'] = 100 - combined_df['fear_greed_value']
+                
         if market_sentiment is not None:
             combined_df['market_sentiment'] = market_sentiment['sentiment_value']
             combined_df['market_sentiment_ma3'] = market_sentiment['sentiment_ma3']
             combined_df['market_sentiment_label'] = market_sentiment['sentiment_label']
             
-        # Add M2 money supply
         if m2_supply is not None:
             # Forward fill to daily
             m2_daily = m2_supply.resample('D').ffill()
             combined_df['m2_money_supply'] = m2_daily['M2_Money_Supply_Billions']
             combined_df['m2_mom_change'] = m2_daily['M2_MoM_Change']
             combined_df['m2_yoy_change'] = m2_daily['M2_YoY_Change']
+            
+            # Add lagged M2 values (57-day lag as mentioned)
+            combined_df['m2_lag57'] = combined_df['m2_money_supply'].shift(57)
+            combined_df['m2_change_lag57'] = combined_df['m2_yoy_change'].shift(57)
+        
+        # Add new data sources
+        if dxy_data is not None:
+            dxy_daily = dxy_data.resample('D').ffill()
+            combined_df['dxy_index'] = dxy_daily['DXY_Close']
+            combined_df['dxy_dod_change'] = dxy_daily['DXY_DoD_Change']
+            combined_df['dxy_wow_change'] = dxy_daily['DXY_WoW_Change']
+            
+            # Add inverse DXY (to capture expected inverse relationship with crypto)
+            combined_df['inverse_dxy'] = 1 / combined_df['dxy_index'] * 100
+        
+        if btc_onchain is not None:
+            btc_daily = btc_onchain.resample('D').ffill()
+            combined_df['btc_active_addresses'] = btc_daily['active_addresses']
+            combined_df['btc_txn_count'] = btc_daily['transaction_count']
+            combined_df['btc_net_exchange_flow'] = btc_daily['net_exchange_flow']
+            combined_df['btc_net_flow_intensity'] = btc_daily['net_flow_intensity']
+        
+        if eth_onchain is not None:
+            eth_daily = eth_onchain.resample('D').ffill()
+            combined_df['eth_active_addresses'] = eth_daily['active_addresses']
+            combined_df['eth_txn_count'] = eth_daily['transaction_count']
+            combined_df['eth_net_exchange_flow'] = eth_daily['net_exchange_flow']
+            combined_df['eth_net_flow_intensity'] = eth_daily['net_flow_intensity']
         
         # Forward fill any missing values
         combined_df = combined_df.ffill()
