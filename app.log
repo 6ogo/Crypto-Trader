@@ -1,0 +1,6 @@
+2025-03-24 21:44:50,919 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2025-03-24 21:44:50,919 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2025-03-24 21:44:50,919 - apscheduler.scheduler - INFO - Added job "update_predictions" to job store "default"
+2025-03-24 21:44:50,920 - apscheduler.scheduler - INFO - Added job "check_prediction_outcomes" to job store "default"
+2025-03-24 21:44:50,920 - apscheduler.scheduler - INFO - Scheduler started
+2025-03-24 21:44:50,922 - apscheduler.scheduler - INFO - Scheduler has been shut down

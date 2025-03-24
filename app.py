@@ -10,10 +10,9 @@ import json
 import uuid
 import datetime
 import joblib
-from train_crypto_model import CryptoPredictor
+import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
-import logging
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -40,7 +39,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Initialize predictor
+# Import the predictor after initializing app and logger
+from train_crypto_model import CryptoPredictor
 predictor = CryptoPredictor()
 
 # Database models
@@ -185,7 +185,11 @@ class Prediction(db.Model):
     horizon_hours = db.Column(db.Integer, default=12)
     accuracy = db.Column(db.Float)  # To be filled when outcome is known
     outcome = db.Column(db.Boolean)  # Actual outcome when available
-    
+
+# Now you can import and initialize SignalCombiner after all models are defined
+from combined_signals import SignalCombiner
+signal_combiner = SignalCombiner(db, Prediction, Trade, User, logger)
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -267,6 +271,34 @@ def logout():
     logout_user()
     return redirect(url_for('index'))
 
+@app.route('/external_data')
+@login_required
+def external_data():
+    """Page to explore external data influences"""
+    # Load combined data for BTC
+    external_file = os.path.join('data', 'BTCUSD_with_external_data.csv')
+    
+    if not os.path.exists(external_file):
+        flash('External data not yet available. Please run data collection first.')
+        return redirect(url_for('dashboard'))
+    
+    df = pd.read_csv(external_file, index_col=0, parse_dates=True)
+    
+    # Calculate correlations
+    price_cols = ['open', 'high', 'low', 'close', 'volume']
+    external_cols = [col for col in df.columns if col not in price_cols]
+    
+    # Get correlations with close price
+    correlations = df[[*price_cols, *external_cols]].corr()['close'].sort_values(ascending=False)
+    
+    # Get recent external data
+    recent_data = df.tail(30)[external_cols]
+    
+    return render_template('external_data.html',
+                          recent_data=recent_data.to_dict('records'),
+                          correlations=correlations.to_dict(),
+                          dates=recent_data.index.strftime('%Y-%m-%d').tolist())
+
 @app.route('/dashboard')
 @login_required
 def dashboard():
@@ -285,12 +317,16 @@ def dashboard():
     # Calculate total portfolio value
     portfolio_value = calculate_portfolio_value(positions, prices)
     
+    # Get combined signals
+    combined_signals = signal_combiner.generate_market_signals()
+    
     return render_template('dashboard.html', 
                           predictions=predictions, 
                           trades=trades, 
                           prices=prices,
                           positions=positions,
                           portfolio_value=portfolio_value,
+                          combined_signals=combined_signals,
                           user=current_user)
 
 @app.route('/api_settings', methods=['GET', 'POST'])
@@ -427,6 +463,13 @@ def api_predictions():
     } for p in predictions]
     
     return jsonify(predictions_data)
+
+@app.route('/api/combined_signals')
+@login_required
+def api_combined_signals():
+    """API endpoint for combined market signals"""
+    signals = signal_combiner.generate_market_signals()
+    return jsonify(signals)
 
 @app.route('/api/positions')
 @login_required
@@ -690,7 +733,7 @@ def calculate_trade_statistics(user_id):
     return stats
 
 def update_predictions():
-    """Update predictions for all symbols"""
+    """Update predictions for all symbols with confidence thresholds"""
     logger.info("Updating predictions...")
     
     try:
@@ -708,9 +751,11 @@ def update_predictions():
                         predictor.scalers[symbol] = joblib.load(scaler_path)
         
         # Generate new predictions
+        actionable_predictions = 0
         for symbol in predictor.symbols:
             if symbol in predictor.data:
-                prediction_result = predictor.make_predictions(symbol)
+                # Use threshold of 0.3 (60% confidence) - adjust as needed
+                prediction_result = predictor.make_predictions_with_threshold(symbol, confidence_threshold=0.3)
                 
                 if prediction_result:
                     # Add to database
@@ -722,10 +767,16 @@ def update_predictions():
                     )
                     
                     db.session.add(new_prediction)
-                    logger.info(f"New prediction for {symbol}: {'UP' if new_prediction.prediction else 'DOWN'} with {new_prediction.probability:.4f} probability")
+                    
+                    # Log with actionability indicator
+                    if prediction_result.get('actionable', False):
+                        actionable_predictions += 1
+                        logger.info(f"ACTIONABLE prediction for {symbol}: {'UP' if new_prediction.prediction else 'DOWN'} with {new_prediction.probability:.4f} probability")
+                    else:
+                        logger.info(f"Low confidence prediction for {symbol}: {'UP' if new_prediction.prediction else 'DOWN'} with {new_prediction.probability:.4f} probability")
         
         db.session.commit()
-        logger.info("Predictions updated successfully")
+        logger.info(f"Predictions updated successfully. {actionable_predictions} actionable predictions generated.")
     except Exception as e:
         logger.error(f"Prediction update error: {str(e)}")
 

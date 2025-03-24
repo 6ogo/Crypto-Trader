@@ -259,6 +259,66 @@
         </div>
     </div>
 </div>
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Combined Market Signals</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Signal</th>
+                                <th>Strength</th>
+                                <th>Confidence</th>
+                                <th>Actionable</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for symbol, signal in combined_signals.items() %}
+                            <tr>
+                                <td>{{ symbol }}</td>
+                                <td class="{% if signal.signal == 'UP' %}prediction-up{% else %}prediction-down{% endif %}">
+                                    {% if signal.signal == 'UP' %}
+                                    <i class="bi bi-arrow-up-circle-fill"></i> UP
+                                    {% else %}
+                                    <i class="bi bi-arrow-down-circle-fill"></i> DOWN
+                                    {% endif %}
+                                </td>
+                                <td>{{ "%.2f"|format(signal.strength * 100) }}%</td>
+                                <td>{{ "%.2f"|format(signal.confidence * 100) }}%</td>
+                                <td>
+                                    {% if signal.actionable %}
+                                    <span class="badge bg-success">Yes</span>
+                                    {% else %}
+                                    <span class="badge bg-warning">No</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if signal.actionable %}
+                                    <button class="btn btn-sm {% if signal.signal == 'UP' %}btn-success{% else %}btn-danger{% endif %}" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#tradeModal" 
+                                            data-symbol="{{ symbol }}" 
+                                            data-action="{% if signal.signal == 'UP' %}buy{% else %}sell{% endif %}">
+                                        {% if signal.signal == 'UP' %}Buy{% else %}Sell{% endif %}
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}

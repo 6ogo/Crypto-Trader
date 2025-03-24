@@ -1,0 +1,169 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">External Data Analysis</h1>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Correlation with BTC Price</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="correlationChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Recent External Indicators</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="indicatorsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Recent Data</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Fear & Greed Index</th>
+                                <th>Market Sentiment</th>
+                                <th>M2 Money Supply (B$)</th>
+                                <th>M2 YoY Change</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for i in range(recent_data|length) %}
+                            <tr>
+                                <td>{{ dates[i] }}</td>
+                                <td>{{ recent_data[i].ext_fear_greed_value }}</td>
+                                <td>{{ recent_data[i].ext_market_sentiment }}</td>
+                                <td>{{ "%.2f"|format(recent_data[i].ext_m2_money_supply) }}</td>
+                                <td>{{ "%.2f"|format(recent_data[i].ext_m2_yoy_change * 100) }}%</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Correlation chart
+        const corrCtx = document.getElementById('correlationChart').getContext('2d');
+        
+        // Prepare correlation data
+        const corrLabels = [];
+        const corrValues = [];
+        
+        {% for key, value in correlations.items() %}
+        {% if key.startswith('ext_') %}
+        corrLabels.push("{{ key[4:] }}");  // Remove 'ext_' prefix
+        corrValues.push({{ value }});
+        {% endif %}
+        {% endfor %}
+        
+        new Chart(corrCtx, {
+            type: 'bar',
+            data: {
+                labels: corrLabels,
+                datasets: [{
+                    label: 'Correlation with BTC Price',
+                    data: corrValues,
+                    backgroundColor: corrValues.map(v => v > 0 ? 'rgba(75, 192, 192, 0.5)' : 'rgba(255, 99, 132, 0.5)'),
+                    borderColor: corrValues.map(v => v > 0 ? 'rgba(75, 192, 192, 1)' : 'rgba(255, 99, 132, 1)'),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        title: {
+                            display: true,
+                            text: 'Correlation Coefficient'
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Indicators chart
+        const indCtx = document.getElementById('indicatorsChart').getContext('2d');
+        
+        // Prepare indicator data
+        const dates = {{ dates|tojson }};
+        
+        // Create datasets for fear & greed and market sentiment
+        const fgData = [];
+        const sentimentData = [];
+        
+        {% for item in recent_data %}
+        fgData.push({{ item.ext_fear_greed_value }});
+        sentimentData.push({{ item.ext_market_sentiment }});
+        {% endfor %}
+        
+        new Chart(indCtx, {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [
+                    {
+                        label: 'Fear & Greed Index',
+                        data: fgData,
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        fill: true
+                    },
+                    {
+                        label: 'Market Sentiment',
+                        data: sentimentData,
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Index Value (0-100)'
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -1,189 +1,74 @@
-# Advanced ML Trading Bot
+# Crypto Trading ML Platform
 
-This repository contains a Python-based trading bot that utilizes machine learning and physics-inspired models to generate trading signals for financial markets.
+A machine learning-powered platform for cryptocurrency price prediction and automated trading.
 
 ## Overview
 
-The trading bot implements an advanced strategy combining several technical indicators, machine learning models, and market regime detection to identify potential trading opportunities. It's designed for algorithmic trading across different market conditions (trending, mean-reverting, volatile, or neutral).
+This application combines machine learning algorithms with cryptocurrency market data to predict price movements and execute trades. It uses historical data to train models that forecast whether crypto prices will rise or fall in the next 12 hours.
 
 ## Features
 
-- **Machine Learning Models**: Uses Random Forest for direction prediction and Gradient Boosting for returns magnitude prediction
-- **Market Regime Detection**: Dynamically adapts to changing market conditions using Hurst exponent analysis
-- **Physics-Inspired Features**: Incorporates concepts like momentum, force, energy, and entropy for market analysis
-- **Adaptive Strategy**: Falls back to simpler moving average strategies when insufficient data is available
-- **Automatic Stop Loss**: Calculates appropriate stop levels based on Average True Range (ATR)
-- **Comprehensive Technical Indicators**: Includes volatility metrics, trend strength indicators, mean reversion signals, and volume analysis
+- **ML-Powered Price Predictions**: Uses XGBoost models to predict price movements for BTC, ETH, SOL, AVAX, and XRP
+- **Multiple Cryptocurrency Support**: Tracks and trades 5 major cryptocurrencies
+- **Real-time Trading**: Connects to Kraken exchange API for live trading
+- **Technical Indicators**: Incorporates 50+ technical indicators for prediction models
+- **Portfolio Management**: Tracks positions, realized and unrealized P&L
+- **Position Tracking**: Manages long and short positions with proper P&L calculations
+- **Performance Analytics**: Visualizes trade history and prediction accuracy
+- **Secure User Authentication**: Supports multiple users with separate portfolios
 
-## Requirements
+## How the Trading Works
 
-The trading bot requires the following Python packages:
-```
-numpy
-pandas
-scipy
-scikit-learn
-statsmodels
-matplotlib (optional, for visualization)
-```
+### Data Collection
+- Historical hourly OHLCV data is fetched from Kraken for the past 4 years
+- The `fetch_crypto_data.py` script handles data retrieval and preprocessing
 
-You can install these dependencies using:
+### Machine Learning Model
+- The `train_crypto_model.py` script creates and trains XGBoost models for each cryptocurrency
+- Features include technical indicators (RSI, MACD, Bollinger Bands), moving averages, volume metrics, and more
+- Models are trained to predict price direction (up/down) 12 hours into the future
 
-```bash
-pip install numpy pandas scipy scikit-learn statsmodels matplotlib
-```
+### Trading System
+1. **Prediction Generation**
+   - Models analyze current market conditions every hour
+   - Each prediction includes direction (up/down) and probability score
 
-## Usage
+2. **Position Management**
+   - Users can manually execute trades based on predictions
+   - The system tracks positions, calculating average entry prices and P&L
+   - Positions can be long (buy) or short (sell)
 
-### Basic Example
+3. **P&L Calculation**
+   - Realized P&L is calculated when positions are closed
+   - Unrealized P&L is continuously calculated based on current market prices
+   - The system handles partial position closures correctly
 
-To run a backtest with the default settings and sample data:
+4. **API Integration**
+   - Trades are executed through the Kraken exchange API
+   - Users must provide their Kraken API keys to enable trading
 
-```python
-from trading_bot import run_backtest
-import pandas as pd
-import numpy as np
+### Prediction Accuracy Tracking
+- The system records all predictions and checks outcomes when the prediction horizon passes
+- Historical accuracy metrics are displayed for each cryptocurrency
 
-# Generate sample data
-dates = pd.date_range(start='2023-01-01', periods=200, freq='H')
-np.random.seed(42)
-closes = (np.random.normal(loc=0.001, scale=0.01, size=200) + 0.001).cumsum() + 100
-    
-df = pd.DataFrame({
-    'timestamp': dates,
-    'open': closes * np.random.normal(loc=1, scale=0.005, size=200),
-    'high': closes * np.random.normal(loc=1.02, scale=0.005, size=200),
-    'low': closes * np.random.normal(loc=0.98, scale=0.005, size=200),
-    'close': closes,
-    'volume': np.random.normal(loc=1000000, scale=500000, size=200)
-})
-    
-df.set_index('timestamp', inplace=True)
+## Components
 
-# Run backtest with ML strategy
-print("Running backtest with ML strategy:")
-run_backtest(df, use_ml_strategy=True, train_size=150)
-```
+- **Flask Web Application**: Backend server handling user authentication, trading, and predictions
+- **SQLite Database**: Stores user data, trades, positions, and prediction history
+- **Machine Learning Pipeline**: Trains and updates prediction models
+- **Kraken API Integration**: Connects to the exchange for real-time data and trading
 
-### With Your Own Data
+## Dashboard
 
-To use your own OHLCV (Open, High, Low, Close, Volume) data:
+The main dashboard provides:
+- Portfolio value and position overview
+- Latest price predictions with trading buttons
+- Current positions with unrealized P&L
+- Recent trade history
+- Current market prices
 
-```python
-import pandas as pd
-from trading_bot import run_backtest
+## Security
 
-# Load your data
-df = pd.read_csv('your_data.csv')
-
-# Ensure your dataframe has the required columns: timestamp (or date), open, high, low, close, volume
-df.set_index('timestamp', inplace=True)
-
-# Run backtest
-run_backtest(df, use_ml_strategy=True, train_size=150)
-```
-
-### Using Just the Strategy
-
-If you want to directly use the `AdvancedStrategy` class for your own trading system:
-
-```python
-from trading_bot import AdvancedStrategy
-import pandas as pd
-
-# Load your data
-df = pd.read_csv('your_data.csv')
-df.set_index('timestamp', inplace=True)
-
-# Initialize strategy
-strategy = AdvancedStrategy()
-
-# Train the strategy
-train_data = df.iloc[:150]
-strategy.train(train_data)
-
-# Generate signals for latest data
-latest_data = df.iloc[:200]  # some overlap with training data is needed
-buy_signals, sell_signals, stop_signals = strategy.generate_signals(latest_data)
-
-# Print latest signal
-print(f"Latest buy signal: {buy_signals.iloc[-1]}")
-print(f"Latest sell signal: {sell_signals.iloc[-1]}")
-```
-
-## Technical Details
-
-### AdvancedStrategy Class
-
-The core of the trading bot is the `AdvancedStrategy` class, which:
-
-1. **Preprocesses data** - Creates feature engineering from raw OHLCV data
-2. **Trains multiple models** - A classifier for direction and a regressor for magnitude
-3. **Detects market regimes** - Categorizes market as trending, mean-reverting, or volatile
-4. **Generates signals** - Produces buy/sell/stop signals based on model predictions and market conditions
-
-Key parameters of the `AdvancedStrategy` class:
-- `lookback_period`: Number of historical bars used for feature calculation (default: 60)
-- `prediction_horizon`: Number of bars to predict ahead (default: 5)
-- `volatility_window`: Window size for volatility calculations (default: 20)
-- `trend_window`: Window size for trend calculations (default: 50)
-- `mean_reversion_window`: Window size for mean reversion features (default: 14)
-
-### MLPhysicsStrategy
-
-This is a wrapper class providing a combined strategy that:
-- Uses the `AdvancedStrategy` when sufficient data is available
-- Falls back to a simple Moving Average crossover strategy when data is limited
-
-### Backtesting Function
-
-The `run_backtest` function allows testing the strategy on historical data:
-- `df`: DataFrame with OHLCV data
-- `use_ml_strategy`: Whether to use ML models or fall back to simpler strategies
-- `train_size`: Number of bars to use for initial training (default: 150)
-
-## Feature Categories
-
-The strategy uses several categories of features:
-
-1. **Basic Features**:
-   - Returns and log returns
-
-2. **Volatility Features**:
-   - Standard deviation of returns
-   - Average True Range (ATR)
-   - Normalized range
-
-3. **Trend Features**:
-   - Moving averages of different lengths
-   - Trend strength indicators
-
-4. **Mean Reversion Features**:
-   - Z-score
-   - RSI (Relative Strength Index)
-   - Bollinger Band position
-
-5. **Volume Features**:
-   - Volume moving average
-   - Volume ratio
-
-6. **Physics-Inspired Features**:
-   - Momentum (price velocity)
-   - Force Index
-   - Market "energy"
-   - Price acceleration
-   - Approximate entropy
-
-## Example Output
-
-When running the backtest, you'll see output like:
-
-```
-Running backtest with ML strategy:
-Prediction features shape: (1, 18)
-Buy signals: 12
-Sell signals: 8
-Stop signals: 5
-```
-
-This indicates the strategy generated 12 buy signals, 8 sell signals, and 5 stop signals during the backtest period.
+- Passwords are stored using secure hashing
+- API secrets are protected for each user
+- Users can only access their own trading data
